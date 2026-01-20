@@ -1,0 +1,6 @@
+{
+  "enable_sqli": true,
+  "enable_xss": true,
+  "enable_rate_limit": true,
+  "enable_bruteforce": true
+}

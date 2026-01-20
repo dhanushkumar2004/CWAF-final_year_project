@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF Security Dashboard</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Simple SVG icon components (replacing Lucide)
+        const Icon = ({ children, className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                {children}
+            </svg>
+        );
+
+        const Shield = ({ className }) => (
+            <Icon className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </Icon>
+        );
+
+        const Activity = ({ className }) => (
+            <Icon className={className}>
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </Icon>
+        );
+
+        const AlertTriangle = ({ className }) => (
+            <Icon className={className}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </Icon>
+        );
+
+        const Lock = ({ className }) => (
+            <Icon className={className}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </Icon>
+        );
+
+        const Download = ({ className }) => (
+            <Icon className={className}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </Icon>
+        );
+
+        const Search = ({ className }) => (
+            <Icon className={className}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </Icon>
+        );
+
+        const RefreshCw = ({ className }) => (
+            <Icon className={className}>
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </Icon>
+        );
+
+        const BarChart3 = ({ className }) => (
+            <Icon className={className}>
+                <line x1="12" y1="20" x2="12" y2="10"></line>
+                <line x1="18" y1="20" x2="18" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="16"></line>
+            </Icon>
+        );
+
+        const PieChart = ({ className }) => (
+            <Icon className={className}>
+                <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+            </Icon>
+        );
+
+        const Settings = ({ className }) => (
+            <Icon className={className}>
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6m6-12h-6m-6 0h6m6 6H7m0 0H1"></path>
+            </Icon>
+        );
+
+        const Bell = ({ className }) => (
+            <Icon className={className}>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </Icon>
+        );
+
+        const Eye = ({ className }) => (
+            <Icon className={className}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </Icon>
+        );
+
+        const EyeOff = ({ className }) => (
+            <Icon className={className}>
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </Icon>
+        );
+
+        const WAFDashboard = () => {
+          const [activeTab, setActiveTab] = useState('overview');
+          const [logs, setLogs] = useState([]);
+          const [stats, setStats] = useState({
+            total: 0, blocked: 0, allowed: 0, xss: 0, sqli: 0, bruteforce: 0, ratelimit: 0
+          });
+          const [config, setConfig] = useState({
+            enable_sqli: true, enable_xss: true, enable_rate_limit: true, enable_bruteforce: true
+          });
+          const [threatMap, setThreatMap] = useState({});
+          const [timeRange, setTimeRange] = useState('24h');
+          const [searchQuery, setSearchQuery] = useState('');
+          const [filterType, setFilterType] = useState('all');
+          const [autoRefresh, setAutoRefresh] = useState(true);
+          const [chartData, setChartData] = useState({ labels: [], values: [], received: 0, blocked: 0 });
+          const [loading, setLoading] = useState(true);
+
+          const API_BASE = window.location.origin;
+
+          useEffect(() => {
+            loadDashboardData();
+            if (autoRefresh) {
+              const interval = setInterval(loadDashboardData, 5000);
+              return () => clearInterval(interval);
+            }
+          }, [autoRefresh, timeRange]);
+
+          const loadDashboardData = async () => {
+            try {
+              const [logsRes, statsRes, configRes, chartRes, threatRes] = await Promise.all([
+                fetch(`${API_BASE}/api/logs?page=1`),
+                fetch(`${API_BASE}/api/stats`),
+                fetch(`${API_BASE}/api/config`),
+                fetch(`${API_BASE}/api/charts?mode=${timeRange}`),
+                fetch(`${API_BASE}/api/threats`)
+              ]);
+
+              const logsData = await logsRes.json();
+              const statsData = await statsRes.json();
+              const configData = await configRes.json();
+              const chartDataRes = await chartRes.json();
+              const threatData = await threatRes.json();
+
+              setLogs(logsData.logs || []);
+              setStats(statsData);
+              setConfig(configData);
+              setChartData(chartDataRes);
+              setThreatMap(threatData.threat_map || {});
+              setLoading(false);
+            } catch (error) {
+              console.error('Error loading data:', error);
+              setLoading(false);
+            }
+          };
+
+          const toggleProtection = async (key) => {
+            const newConfig = { ...config, [key]: !config[key] };
+            setConfig(newConfig);
+            
+            try {
+              await fetch(`${API_BASE}/api/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newConfig)
+              });
+            } catch (error) {
+              console.error('Error updating config:', error);
+            }
+          };
+
+          const exportLogs = (format) => {
+            window.open(`${API_BASE}/export/${format}`, '_blank');
+          };
+
+          const filteredLogs = logs.filter(log => {
+            const matchesSearch = log.ip?.includes(searchQuery) || 
+                                 log.url?.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesFilter = filterType === 'all' || log.action === filterType || log.attack === filterType;
+            return matchesSearch && matchesFilter;
+          });
+
+          const StatCard = ({ icon: Icon, label, value, color }) => (
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <Icon className={`w-8 h-8 ${color}`} />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">{value?.toLocaleString() || 0}</div>
+              <div className="text-sm text-slate-400">{label}</div>
+            </div>
+          );
+
+          const ProtectionToggle = ({ label, enabled, onChange, description }) => (
+            <div className="flex items-center justify-between p-4 bg-slate-800 rounded-lg border border-slate-700">
+              <div className="flex-1">
+                <div className="font-medium text-white">{label}</div>
+                <div className="text-sm text-slate-400">{description}</div>
+              </div>
+              <button
+                onClick={onChange}
+                className={`relative w-14 h-7 rounded-full transition-colors ${
+                  enabled ? 'bg-green-500' : 'bg-slate-600'
+                }`}
+              >
+                <div
+                  className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-transform ${
+                    enabled ? 'translate-x-8' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          );
+
+          const ThreatTimeline = () => {
+            const maxValue = Math.max(...(chartData.values || [1]));
+            
+            return (
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <h3 className="text-lg font-semibold text-white mb-4">Threat Timeline</h3>
+                <div className="flex items-end justify-between h-40 gap-1">
+                  {(chartData.labels || []).slice(0, 24).map((label, index) => {
+                    const value = chartData.values[index] || 0;
+                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center">
+                        <div
+                          className="w-full bg-gradient-to-t from-red-500 to-orange-500 rounded-t transition-all hover:opacity-80 cursor-pointer"
+                          style={{ height: `${height}%`, minHeight: height > 0 ? '2px' : '0' }}
+                          title={`${label} - ${value} threats`}
+                        />
+                        {index % 4 === 0 && (
+                          <div className="text-xs text-slate-500 mt-2">{label}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          };
+
+          const AttackDistribution = () => {
+            const attacks = [
+              { type: 'SQLi', count: stats.sqli || 0, color: 'bg-red-500' },
+              { type: 'XSS', count: stats.xss || 0, color: 'bg-orange-500' },
+              { type: 'Brute Force', count: stats.bruteforce || 0, color: 'bg-yellow-500' },
+              { type: 'Rate Limit', count: stats.ratelimit || 0, color: 'bg-blue-500' },
+            ];
+
+            const total = attacks.reduce((sum, a) => sum + a.count, 0);
+
+            return (
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Attack Distribution
+                </h3>
+                <div className="space-y-3">
+                  {attacks.map(attack => (
+                    <div key={attack.type}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-300">{attack.type}</span>
+                        <span className="text-white font-medium">{attack.count}</span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-2">
+                        <div
+                          className={`${attack.color} h-2 rounded-full transition-all`}
+                          style={{ width: `${total > 0 ? (attack.count / total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          };
+
+          const TopThreats = () => {
+            const sortedThreats = Object.entries(threatMap)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5);
+
+            return (
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                  Top Threat Sources
+                </h3>
+                <div className="space-y-3">
+                  {sortedThreats.length > 0 ? sortedThreats.map(([ip, count], index) => (
+                    <div key={ip} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        index === 0 ? 'bg-red-500' : index === 1 ? 'bg-orange-500' : 'bg-yellow-500'
+                      } text-white text-sm font-bold`}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-white font-mono text-sm">{ip}</div>
+                        <div className="text-xs text-slate-400">{count} blocked attempts</div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-slate-400 text-center py-4">No threats detected yet</div>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          const LiveLogTable = () => (
+            <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+              <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Live Activity Feed
+                </h3>
+                <button
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={`px-3 py-2 rounded text-sm flex items-center gap-2 ${
+                    autoRefresh ? 'bg-green-500 text-white' : 'bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {autoRefresh ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  <span>{autoRefresh ? 'Live' : 'Paused'}</span>
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-900">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">IP</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Method</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">URL</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Attack</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {filteredLogs.length > 0 ? filteredLogs.slice(0, 15).map((log, idx) => (
+                      <tr key={idx} className="hover:bg-slate-700/50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-300">
+                          {log.time ? new Date(log.time).toLocaleTimeString() : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-mono text-slate-300">{log.ip || '-'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            log.method === 'POST' ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'
+                          }`}>
+                            {log.method || '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-300 max-w-xs truncate" title={log.url}>
+                          {log.url || '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          {log.attack && log.attack !== 'None' && (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              log.attack === 'SQLi' ? 'bg-red-500/20 text-red-300' :
+                              log.attack === 'XSS' ? 'bg-orange-500/20 text-orange-300' :
+                              'bg-yellow-500/20 text-yellow-300'
+                            }`}>
+                              {log.attack}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            log.action === 'BLOCKED' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                          }`}>
+                            {log.action || '-'}
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="6" className="px-4 py-8 text-center text-slate-400">
+                          {loading ? 'Loading data...' : 'No logs available. Start browsing with the proxy to see activity.'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+
+          if (loading) {
+            return (
+              <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="text-white text-xl">Loading dashboard...</div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="min-h-screen bg-slate-900 text-white">
+              <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-8 h-8 text-blue-400" />
+                      <div>
+                        <h1 className="text-2xl font-bold">WAF Security Center</h1>
+                        <p className="text-sm text-slate-400">Client-Side Web Application Firewall</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-slate-700 rounded-lg">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                        <span className="text-sm">Active Protection</span>
+                      </div>
+                      <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                        <Bell className="w-5 h-5" />
+                      </button>
+                      <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                        <Settings className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-6 flex gap-1">
+                  {['overview', 'analytics', 'protection', 'logs'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-4 py-2 font-medium capitalize transition-colors ${
+                        activeTab === tab
+                          ? 'text-blue-400 border-b-2 border-blue-400'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </header>
+
+              <main className="p-6">
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <StatCard icon={Activity} label="Total Requests" value={stats.total} color="text-blue-400" />
+                      <StatCard icon={Shield} label="Blocked Threats" value={stats.blocked} color="text-red-400" />
+                      <StatCard icon={Lock} label="Allowed" value={stats.allowed} color="text-green-400" />
+                      <StatCard icon={AlertTriangle} label="Critical Alerts" value={(stats.sqli || 0) + (stats.xss || 0)} color="text-orange-400" />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <ThreatTimeline />
+                      <AttackDistribution />
+                    </div>
+
+                    <TopThreats />
+                    <LiveLogTable />
+                  </div>
+                )}
+
+                {activeTab === 'analytics' && (
+                  <div className="space-y-6">
+                    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-6 h-6" />
+                        Advanced Analytics
+                      </h2>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <button
+                          onClick={() => setTimeRange('24h')}
+                          className={`px-4 py-2 rounded ${timeRange === '24h' ? 'bg-blue-500' : 'bg-slate-700'}`}
+                        >
+                          Last 24 Hours
+                        </button>
+                        <button
+                          onClick={() => setTimeRange('today')}
+                          className={`px-4 py-2 rounded ${timeRange === 'today' ? 'bg-blue-500' : 'bg-slate-700'}`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          onClick={() => setTimeRange('7d')}
+                          className={`px-4 py-2 rounded ${timeRange === '7d' ? 'bg-blue-500' : 'bg-slate-700'}`}
+                        >
+                          Last 7 Days
+                        </button>
+                      </div>
+
+                      <ThreatTimeline />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <AttackDistribution />
+                      <TopThreats />
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'protection' && (
+                  <div className="space-y-6">
+                    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                      <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <Shield className="w-6 h-6" />
+                        Protection Controls
+                      </h2>
+                      
+                      <div className="space-y-4">
+                        <ProtectionToggle
+                          label="SQL Injection Protection"
+                          description="Detect and block SQL injection attacks"
+                          enabled={config.enable_sqli}
+                          onChange={() => toggleProtection('enable_sqli')}
+                        />
+                        <ProtectionToggle
+                          label="XSS Protection"
+                          description="Prevent cross-site scripting attacks"
+                          enabled={config.enable_xss}
+                          onChange={() => toggleProtection('enable_xss')}
+                        />
+                        <ProtectionToggle
+                          label="Rate Limiting"
+                          description="Limit requests per IP to prevent abuse"
+                          enabled={config.enable_rate_limit}
+                          onChange={() => toggleProtection('enable_rate_limit')}
+                        />
+                        <ProtectionToggle
+                          label="Brute Force Protection"
+                          description="Block repeated login attempts"
+                          enabled={config.enable_bruteforce}
+                          onChange={() => toggleProtection('enable_bruteforce')}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                        <h3 className="text-lg font-semibold mb-4">Protection Status</h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Active Rules</span>
+                            <span className="text-white font-bold">{Object.values(config).filter(Boolean).length}/4</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Threats Blocked Today</span>
+                            <span className="text-red-400 font-bold">{stats.blocked || 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Protection Level</span>
+                            <span className="text-green-400 font-bold">
+                              {Object.values(config).filter(Boolean).length === 4 ? 'Maximum' : 'Partial'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                        <div className="space-y-2">
+                          <button 
+                            onClick={() => exportLogs('json')}
+                            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Export JSON
+                          </button>
+                          <button
+                            onClick={() => exportLogs('csv')}
+                            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Export CSV
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'logs' && (
+                  <div className="space-y-6">
+                    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Search className="w-6 h-6" />
+                        Log Search & Filter
+                      </h2>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <input
+                          type="text"
+                          placeholder="Search by IP or URL..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+
+                        <select
+                          value={filterType}
+                          onChange={(e) => setFilterType(e.target.value)}
+                          className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="all">All Actions</option>
+                          <option value="BLOCKED">Blocked Only</option>
+                          <option value="ALLOWED">Allowed Only</option>
+                          <option value="SQLi">SQL Injection</option>
+                          <option value="XSS">XSS Attacks</option>
+                        </select>
+
+                        <button
+                          onClick={() => {
+                            setSearchQuery('');
+                            setFilterType('all');
+                          }}
+                          className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+
+                      <LiveLogTable />
+                    </div>
+                  </div>
+                )}
+              </main>
+            </div>
+          );
+        };
+
+        // Mount the React app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<WAFDashboard />);
