@@ -69,3 +69,52 @@ graph LR
     ConfigFiles -.->|Read Rules| SecurityEngine
     FlaskBackend -.->|Read Logs| LogFiles
     FlaskBackend <-->|Update Config| ConfigFiles
+
+
+
+---
+
+## 2. Process Flow (Algorithm)
+
+This flowchart details the step-by-step decision-making process inside the proxy engine for every intercepted request.
+
+### Logic Flowchart
+*Illustrates the sequential security checks applied to each request before allowing or blocking it.*
+
+```mermaid
+flowchart TD
+    Start([User Request])
+    Intercept[Intercept via Proxy]
+    LoadConfig[Load Config Rules]
+
+    WL{Whitelisted?}
+    Rate{Rate Limit Exceeded?}
+    Auth{Login Page?}
+    Brute{Brute Force Detected?}
+    Normalize[Normalize Payload]
+    Scan[Scan SQLi & XSS Patterns]
+    Score{Threat Score ≥ Threshold?}
+
+    Allow[Allow Request]
+    BlockRate[Block: Rate Limit]
+    BlockBrute[Block: Brute Force]
+    BlockThreat[Block: Malicious Payload]
+    Log[Log Event]
+
+    Start --> Intercept --> LoadConfig --> WL
+    WL -- Yes --> Allow --> Log
+    WL -- No --> Rate
+
+    Rate -- Yes --> BlockRate --> Log
+    Rate -- No --> Auth
+
+    Auth -- Yes --> Brute
+    Brute -- Yes --> BlockBrute --> Log
+    Brute -- No --> Normalize
+
+    Auth -- No --> Normalize
+    Normalize --> Scan --> Score
+
+    Score -- Yes --> BlockThreat --> Log
+    Score -- No --> Allow --> Log
+
