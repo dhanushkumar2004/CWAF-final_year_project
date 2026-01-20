@@ -31,36 +31,26 @@ graph LR
     subgraph Host_Machine ["WAF HOST MACHINE (Localhost)"]
         style Host_Machine fill:#ffffff,stroke:#666,stroke-width:3px
 
-        %% TOP SWIMLANE: Live Traffic Processing
-        subgraph Live_Processing ["1. Live Traffic Processing Path (Hot Path)"]
-            style Live_Processing fill:#fff5f5,stroke:#d9534f
+        subgraph Live_Processing ["Hot Path"]
             ProxyServer["Proxy Server<br/>(mitmdump :8080)"]:::livePath
-            SecurityEngine["Security Engine<br/>(proxy.py Logic)"]:::livePath
+            SecurityEngine["Security Engine<br/>(proxy.py)"]:::livePath
         end
 
-        %% MIDDLE: Shared Data
-        subgraph Shared_Data ["Shared Storage (Glue)"]
-            style Shared_Data fill:#f4f0f7,stroke:#6f42c1,stroke-width:1px
-            LogFiles[("waf_logs.json<br/>(Events)")]:::storage
-            ConfigFiles[("waf_config.json<br/>(Rules)")]:::storage
+        subgraph Shared_Data ["Shared Storage"]
+            LogFiles[("waf_logs.json")]:::storage
+            ConfigFiles[("waf_config.json")]:::storage
         end
 
-        %% BOTTOM SWIMLANE: Management
-        subgraph Management ["2. Management & Monitoring Path (Cold Path)"]
-            style Management fill:#f0f7ff,stroke:#007bff
+        subgraph Management ["Cold Path"]
             FlaskBackend["Dashboard Backend<br/>(Flask API :5000)"]:::adminPath
         end
     end
 
-    %% --- RIGHT SIDE: THE INTERNET ---
-    Internet((Internet /<br/>Target Servers)):::internet
+    Internet((Internet / Target Servers)):::internet
 
-    %% === DEFINING THE FLOWS ===
-    UserBrowser ==>|HTTP Request| ProxyServer
-    ProxyServer === SecurityEngine
-    SecurityEngine ==>|Allowed| Internet
-    Internet ==>|Response| SecurityEngine
-    SecurityEngine ==>|Forward Back| UserBrowser
+    UserBrowser --> ProxyServer --> SecurityEngine
+    SecurityEngine -->|Allowed| Internet
+    Internet --> SecurityEngine --> UserBrowser
     SecurityEngine --|Blocked 403|--> UserBrowser
 
     AdminBrowser <-->|API Calls| FlaskBackend
@@ -69,52 +59,3 @@ graph LR
     ConfigFiles -.->|Read Rules| SecurityEngine
     FlaskBackend -.->|Read Logs| LogFiles
     FlaskBackend <-->|Update Config| ConfigFiles
-
-
-
----
-
-## 2. Process Flow (Algorithm)
-
-This flowchart details the step-by-step decision-making process inside the proxy engine for every intercepted request.
-
-### Logic Flowchart
-*Illustrates the sequential security checks applied to each request before allowing or blocking it.*
-
-```mermaid
-flowchart TD
-    Start([User Request])
-    Intercept[Intercept via Proxy]
-    LoadConfig[Load Config Rules]
-
-    WL{Whitelisted?}
-    Rate{Rate Limit Exceeded?}
-    Auth{Login Page?}
-    Brute{Brute Force Detected?}
-    Normalize[Normalize Payload]
-    Scan[Scan SQLi & XSS Patterns]
-    Score{Threat Score ≥ Threshold?}
-
-    Allow[Allow Request]
-    BlockRate[Block: Rate Limit]
-    BlockBrute[Block: Brute Force]
-    BlockThreat[Block: Malicious Payload]
-    Log[Log Event]
-
-    Start --> Intercept --> LoadConfig --> WL
-    WL -- Yes --> Allow --> Log
-    WL -- No --> Rate
-
-    Rate -- Yes --> BlockRate --> Log
-    Rate -- No --> Auth
-
-    Auth -- Yes --> Brute
-    Brute -- Yes --> BlockBrute --> Log
-    Brute -- No --> Normalize
-
-    Auth -- No --> Normalize
-    Normalize --> Scan --> Score
-
-    Score -- Yes --> BlockThreat --> Log
-    Score -- No --> Allow --> Log
-
