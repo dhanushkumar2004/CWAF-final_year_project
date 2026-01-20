@@ -1,10 +1,13 @@
 # WAF Project: System Design and Logic Documentation
 
+This document details the visual architecture, decision logic, and data flow of the Web Application Firewall.
+
 ## 1. System Architecture
 
-The system architecture is designed around a "Separation of Concerns" principle. It divides the system into two distinct operational paths: the **Live Traffic Path** (high-speed security filtering) and the **Management Path** (monitoring and configuration). These two paths are bridged by a shared file-based storage system.
+The architecture separates the high-speed traffic interception ("Hot Path") from the administrative dashboard ("Cold Path"), using shared JSON files as the synchronization layer.
 
 ### Architecture Diagram
+*Illustrates the physical components and the separation of Client, Host, and Internet zones.*
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#eee', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#f4f4f4'}}}%%
@@ -75,7 +78,15 @@ graph LR
     ProxyServer --- SecurityEngine
 
 
-    %%{init: {'theme': 'base', 'themeVariables': { 'lineColor': '#333', 'secondaryColor': '#f4f4f4', 'tertiaryColor': '#fff'}}}%%
+#### 2.Process Flow (Algorithm)
+This flowchart details the step-by-step decision-making process inside the proxy.py engine for every intercepted request.
+
+Logic Flowchart
+Illustrates the sequence of checks: Whitelist -> Rate Limit -> Brute Force -> Deep Pattern Scanning.
+
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'lineColor': '#333', 'secondaryColor': '#f4f4f4', 'tertiaryColor': '#fff'}}}%%
 flowchart TD
     %% Node Styles
     classDef startend fill:#2d3e50,stroke:#333,stroke-width:2px,color:white,shape:stadium;
@@ -117,43 +128,3 @@ flowchart TD
     BlockThreat --> Log
     Forward --> Log
     Log --> End([End]) :::startend
-
-
-    graph LR
-    %% Styles
-    classDef entity fill:#e1e4e8,stroke:#333,stroke-width:2px;
-    classDef process fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,shape:rounded;
-    classDef store fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px,shape:cylinder;
-
-    %% Entities
-    User[User / Client]:::entity
-    Admin[Administrator]:::entity
-    WebServer[Target Web Server]:::entity
-
-    %% Processes
-    P1(1.0 Traffic Interception):::process
-    P2(2.0 Threat Analysis):::process
-    P3(3.0 Action Handler):::process
-    P4(4.0 Dashboard Reporting):::process
-
-    %% Data Stores
-    D1[(Logs DB)]:::store
-    D2[(Config Rules)]:::store
-
-    %% Flows
-    User -->|HTTP Request| P1
-    P1 -->|Raw Data| P2
-    
-    D2 -.->|Read Rules| P2
-    P2 -->|Threat Score| P3
-    
-    P3 -->|Allowed Request| WebServer
-    WebServer -->|Response| P3
-    P3 -->|Response / 403 Error| User
-    
-    P3 -->|Event Details| D1
-    
-    Admin -->|Update Config| P4
-    P4 -->|Write Rules| D2
-    D1 -.->|Read Stats| P4
-    P4 -->|Visual Analytics| Admin
