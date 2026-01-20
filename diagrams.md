@@ -1,10 +1,10 @@
-# Project Diagrams
+# WAF Project: System Design and Logic Documentation
 
-This document contains the visual documentation for the Web Application Firewall (WAF) project, including the high-level system architecture and the detailed request processing flow.
+## 1. System Architecture
 
-## 1. System Architecture Diagram
+The system architecture is designed around a "Separation of Concerns" principle. It divides the system into two distinct operational paths: the **Live Traffic Path** (high-speed security filtering) and the **Management Path** (monitoring and configuration). These two paths are bridged by a shared file-based storage system.
 
-This diagram illustrates the separation between the **Live Traffic Path** (where requests are filtered) and the **Management Path** (where admins view data), connected by shared JSON storage.
+### Architecture Diagram
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#eee', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#f4f4f4'}}}%%
