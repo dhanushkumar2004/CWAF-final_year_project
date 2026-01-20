@@ -31,7 +31,7 @@ graph TB
     end
 
     subgraph "External"
-        WS[Web Servers<br/>(Target Applications)]
+        WS[Web Servers<br/>Target Applications]
     end
 
     UB -->|HTTP/HTTPS Requests| P
