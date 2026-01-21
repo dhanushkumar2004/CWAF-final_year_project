@@ -1,8 +1,7 @@
 graph LR
-    %% --- STYLING (Make nodes look like Use Cases) ---
+    %% --- STYLING ---
     classDef actorStyle fill:#fff,stroke:#333,stroke-width:0px,font-size:14px;
     classDef usecaseStyle fill:#fff,stroke:#333,stroke-width:2px,rx:20,ry:20;
-    classDef boundaryStyle fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
 
     %% --- ACTORS ---
     Admin[👤 Administrator]:::actorStyle
@@ -35,11 +34,11 @@ graph LR
 
     %% User Actions
     WebUser --> UC5
-    
-    %% Internal Logic (Includes & Extends)
+
+    %% Internal Logic
     UC5 -.->|include| UC6
     UC6 -.->|include| UC9
-    
+
     UC6 -.->|extend: Score > 5| UC7
     UC6 -.->|extend: Score < 5| UC8
 
