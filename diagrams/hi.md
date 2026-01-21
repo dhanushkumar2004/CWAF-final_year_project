@@ -4,7 +4,7 @@ flowchart LR
     Intercept[Intercept via Proxy]
     LoadConfig[Load Config]
 
-    %% Decisions - Quotes added for safety
+    %% Decisions
     WL{"Whitelisted?"}
     Rate{"Rate Limit Exceeded?"}
     Auth{"Login Page?"}
