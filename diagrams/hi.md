@@ -1,3 +1,4 @@
+```mermaid
 flowchart LR
     %% Main Nodes
     Start([User Request])
@@ -45,3 +46,4 @@ flowchart LR
     %% Final Decision Path
     Score -- Yes --> BlockThreat --> Log
     Score -- No --> Allow
+```
